@@ -804,12 +804,12 @@ impl<'a> FromSql<'a> for SystemTime {
         let offset = Duration::new(secs, nsec as u32);
 
         let time = if negative {
-            epoch - offset
+            epoch.checked_sub(offset)
         } else {
-            epoch + offset
+            epoch.checked_add(offset)
         };
 
-        Ok(time)
+        time.ok_or_else(|| "value too large to decode".into())
     }
 
     accepts!(TIMESTAMP, TIMESTAMPTZ);
@@ -1345,7 +1345,8 @@ where
     }
 }
 
-#[cfg(test)]
+// Only a 64-bit `timespec` `SystemTime` spans the whole `i64` microsecond range.
+#[cfg(all(test, unix))]
 mod test {
     use super::*;
 
